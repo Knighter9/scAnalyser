@@ -51,7 +51,7 @@ server <- function(input, output, session) {
         }
     })
 
-    # 🔥 Listen to browser back/forward events
+    # Listen to browser back/forward events
     observeEvent(input$browser_page, {
         page <- substring(input$browser_page, 2)  # remove leading #
         message(sprintf("Browser page detected - setting page to: %s", page))
