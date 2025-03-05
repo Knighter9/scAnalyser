@@ -9,12 +9,15 @@ library(promises)
 plan(multisession)
 
 # A helper function to create a box with a plot and download button
-plotBox <- function(plotOutputId, downloadButtonId, plotTitle, ns) {
+plotBox <- function(plotOutputId, downloadButtonId, plotTitle, ns,explanationText=NULL) {
   div(
     style = "border: 1px solid #ccc; padding: 10px; margin: 5px;",
     h4(plotTitle),
     plotOutput(ns(plotOutputId)),
-    downloadButton(ns(downloadButtonId), paste0("Download ", plotTitle, " Plot"))
+    downloadButton(ns(downloadButtonId), paste0("Download ", plotTitle, " Plot")),
+    if(!is.null(explanationText)){
+        p(style = "font-size: 0.8em; margin-top: 10px;", explanationText)
+    }
   )
 }
 
@@ -50,7 +53,6 @@ NormalizationClusteringUI <- function(id) {
     ),
     hr(),
     uiOutput(ns("progress_ui")),
-    verbatimTextOutput(ns("norm_clustering_log")),
     hr(),
     uiOutput(ns("pca_plots_ui"))
   )
@@ -79,7 +81,8 @@ NormalizationClusteringServer <- function(id, filteredSeurat) {
 
     observeEvent(input$start_normalization, {
       req(filteredSeurat())
-
+      # clear the current plots 
+      pcaPlots(list())
       normalizationRunning(TRUE)
       shinyjs::disable("start_normalization")
       progress_log("Starting normalization...")
@@ -175,24 +178,20 @@ NormalizationClusteringServer <- function(id, filteredSeurat) {
       })
     })
 
-    output$norm_clustering_log <- renderPrint({
-      if (!is.null(progress_file()) && file.exists(progress_file())) {
-        cat(readLines(progress_file()), sep = "\n")
-      } else {
-        cat("No logs available.")
-      }
-    })
 
     output$pca_plots_ui <- renderUI({
-      req(pcaPlots())
-      fluidRow(
-        column(6, plotBox("elbow_plot", "download_elbow_plot", "Elbow Plot", ns)),
-        column(6, if (!is.null(pcaPlots()$jackstraw)) {
-          plotBox("jackstraw_plot", "download_jackstraw_plot", "JackStraw Plot", ns)
-        } else {
-          div("JackStraw Plot not available for SCTransform")
-        })
-      )
+        req(pcaPlots())
+      # lets just check to see if the length is greater than 0, then we will render
+        if (length(pcaPlots()) > 0) {
+            fluidRow(
+                column(6, plotBox("elbow_plot", "download_elbow_plot", "Elbow Plot", ns,p("The elbow plot helps determine the optimal number of principal components (PCs) to retain for downstream clustering analysis by showing where the explained variance begins to level off. It is generally best to find the elbow and retain PCs up to that point. Although it is often acceptable to retain slighly more PC's then the Elbow point."))),
+                column(6, if (!is.null(pcaPlots()$jackstraw)) {
+                plotBox("jackstraw_plot", "download_jackstraw_plot", "JackStraw Plot", ns,"The JackStraw plot helps assess the statistical significance of each principal component (PC), allowing us to choose PCs that capture meaningful biological variation rather than noise. The plot shows the distribution of p-values for each PC, with significant PCs showing a deviation from the null hypothesis (p < 0.05).")
+                } else {
+                div("JackStraw Plot not available for SCTransform")
+                })
+            )
+        }
     })
 
     output$elbow_plot <- renderPlot({
