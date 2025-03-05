@@ -59,7 +59,7 @@ QC_analysisUI <- function(id) {
 library(Seurat)
 library(ggplot2)
 
-QC_analysisServer <- function(id, seuratData) {
+QC_analysisServer <- function(id, seuratData,onProceed = NULL) {
     moduleServer(id, function(input, output, session) {
         ns <- session$ns
 
@@ -178,23 +178,19 @@ QC_analysisServer <- function(id, seuratData) {
             div(style = "text-align: center; margin-top: 20px;",
                 actionButton(ns("proceed_normalization"), "Proceed to Normalization and Clustering", class = "btn btn-success"))
         })
+        # Proceed button (only show after filtering)
+        output$proceed_button_ui <- renderUI({
+            req(filtered_seurat())
+            div(style = "text-align: center; margin-top: 20px;",
+                actionButton(ns("proceed_normalization"), "Proceed to Normalization and Clustering", class = "btn btn-success"))
+        })
 
+        # Trigger `onProceed()` callback to pass filtered object and navigate
         observeEvent(input$proceed_normalization, {
-            showModal(modalDialog(
-                title = "Proceeding",
-                "This will lead to the next section — Normalization and Clustering (not implemented here).",
-                easyClose = TRUE
-            ))
+            req(filtered_seurat())
+            if (!is.null(onProceed)) {
+                onProceed(filtered_seurat())
+            }
         })
     })
-}
-
-# Helper function for boxed plot + download button
-plotBox <- function(plotOutputId, downloadButtonId, plotTitle, ns) {
-    div(
-        style = "border: 1px solid #ccc; padding: 10px; margin: 5px; text-align: center;",
-        h4(plotTitle),
-        plotOutput(ns(plotOutputId)),
-        downloadButton(ns(downloadButtonId), paste0("Download ", plotTitle, " Plot"))
-    )
 }
