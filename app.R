@@ -5,7 +5,8 @@ library(bslib)
 
 source("modules/upload_module.R")
 source("modules/QC_Analysis_Module.R")
-source("modules/normalization_clustering_module.R")  # New module
+source("modules/normalization_clustering_module.R") # New module
+source("modules/clustering2_module.R") # New module
 
 ui <- fluidPage(
     useShinyjs(),
@@ -36,6 +37,8 @@ server <- function(input, output, session) {
 
     # Store filtered Seurat object from QC for handoff to Normalization
     filteredSeurat <- reactiveVal(NULL)
+    # store doublet removal results for handoff to Clustering2
+    doubletFilteredSeurat <- reactiveVal(NULL)
 
     observe({
         hash <- session$clientData$url_hash
@@ -64,6 +67,8 @@ server <- function(input, output, session) {
             QC_analysisUI("QC_analysis")
         } else if (current_page() == "normalization_clustering") {
             NormalizationClusteringUI("normalization_clustering")
+        } else if (current_page() == "clustering2") {
+            Clustering2UI("clustering2")
         }
     })
 
@@ -109,6 +114,23 @@ server <- function(input, output, session) {
     })
 
     NormalizationClusteringServer("normalization_clustering", filteredSeurat)
+
+    NormalizationClusteringServer("normalization_clustering", filteredSeurat, onProceed = function(singletObj) {
+        doubletFilteredSeurat(singletObj) # Store the final Seurat object
+
+        runjs("
+            let historyStack = JSON.parse(sessionStorage.getItem('historyStack')) || ['#upload'];
+            historyStack.push('#clustering2');
+            sessionStorage.setItem('historyStack', JSON.stringify(historyStack));
+            sessionStorage.setItem('forwardStack', JSON.stringify([]));
+            history.pushState({page: '#clustering2'}, '', '#clustering2');
+        ")
+        current_page("clustering2")
+        updateQueryString("#clustering2", mode = "replace")
+    })
+
+    #  Pass the final filtered Seurat object to Clustering2Server
+    Clustering2Server("clustering2", doubletFilteredSeurat)
 }
 
 shinyApp(ui, server)
