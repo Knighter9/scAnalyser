@@ -7,6 +7,7 @@ source("modules/upload_module.R")
 source("modules/QC_Analysis_Module.R")
 source("modules/normalization_clustering_module.R") # New module
 source("modules/clustering2_module.R") # New module
+source("modules/cell_annotation_module.R") # New module
 
 ui <- fluidPage(
     useShinyjs(),
@@ -39,6 +40,9 @@ server <- function(input, output, session) {
     filteredSeurat <- reactiveVal(NULL)
     # store doublet removal results for handoff to Clustering2
     doubletFilteredSeurat <- reactiveVal(NULL)
+    # store final Seurat object for handoff to CellAnnotation
+    finalSeurat <- reactiveVal(NULL)
+
 
     observe({
         hash <- session$clientData$url_hash
@@ -69,6 +73,10 @@ server <- function(input, output, session) {
             NormalizationClusteringUI("normalization_clustering")
         } else if (current_page() == "clustering2") {
             Clustering2UI("clustering2")
+        } else if (current_page() == "cell_annotation") {
+            CellAnnotationUI("cell_annotation")
+        } else {
+            div(class = "alert alert-danger", "Page not found.")
         }
     })
 
@@ -131,6 +139,22 @@ server <- function(input, output, session) {
 
     #  Pass the final filtered Seurat object to Clustering2Server
     Clustering2Server("clustering2", doubletFilteredSeurat)
+
+    # handle on proceeding object for clustering2Server to launch cell annotation page
+    Clustering2Server("clustering2", doubletFilteredSeurat, onProceed = function(finalObj) {
+        finalSeurat(finalObj) # Store the final Seurat object
+        runjs("
+            let historyStack = JSON.parse(sessionStorage.getItem('historyStack')) || ['#upload'];
+            historyStack.push('#cell_annotation');
+            sessionStorage.setItem('historyStack', JSON.stringify(historyStack));
+            sessionStorage.setItem('forwardStack', JSON.stringify([]));
+            history.pushState({page: '#cell_annotation'}, '', '#cell_annotation');
+        ")
+        current_page("cell_annotation")
+        updateQueryString("#cell_annotation", mode = "replace")
+    })
+    # Pass the final Seurat object to CellAnnotationServer
+    CellAnnotationServer("cell_annotation", finalSeurat)
 }
 
 shinyApp(ui, server)

@@ -13,6 +13,7 @@ library(RColorBrewer)
 plan(multisession)
 # increase future.globals.maxsize to 1g
 options(future.globals.maxSize = 1024 * 1024 * 1024 * 10)
+options(future.seed = TRUE)
 
 # mulitplet rates for doublet identification
 multiplet_rates <- data.frame(
@@ -459,7 +460,7 @@ NormalizationClusteringServer <- function(id, filteredSeurat, onProceed = NULL) 
                 doubletRemovalRunning(FALSE)
                 shinyjs::enable("run_doublet_removal")
                 # save the rds file
-                saveRDS(result, file = "doublet_removal_results.rds") # tempory so i can bypass normalization and clustring
+                # saveRDS(result, file = "doublet_removal_results.rds") # tempory so i can bypass normalization and clustring
             }) %...!% (function(err) {
                 message("Error during doublet removal:", conditionMessage(err))
                 showNotification(paste("Error:", conditionMessage(err)), type = "error")
